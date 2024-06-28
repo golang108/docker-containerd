@@ -215,8 +215,14 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 				deferCtx, deferCancel := util.DeferContext()
 				defer deferCancel()
 				// Teardown network if an error is returned.
-				if cleanupErr = c.teardownPodNetwork(deferCtx, sandbox); cleanupErr != nil {
-					log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+				if c.config.PodNetworkConfig.Enabled {
+					if cleanupErr := c.stopPodnetwork(deferCtx, sandbox); cleanupErr != nil {
+						log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+					}
+				} else {
+					if cleanupErr := c.teardownPodNetwork(deferCtx, sandbox); cleanupErr != nil {
+						log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+					}
 				}
 
 			}
@@ -230,9 +236,17 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		// In this case however caching the IP will add a subtle performance enhancement by avoiding
 		// calls to network namespace of the pod to query the IP of the veth interface on every
 		// SandboxStatus request.
-		if err := c.setupPodNetwork(ctx, &sandbox); err != nil {
-			return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+		
+		if c.config.PodNetworkConfig.Enabled {
+			if err := c.podNetworkSetup(ctx, &sandbox); err != nil {
+				return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+			}
+		} else {
+			if err := c.setupPodNetwork(ctx, &sandbox); err != nil {
+				return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+			}
 		}
+		
 		sandboxCreateNetworkTimer.UpdateSince(netStart)
 	}
 
@@ -337,8 +351,14 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 				deferCtx, deferCancel := util.DeferContext()
 				defer deferCancel()
 				// Teardown network if an error is returned.
-				if cleanupErr = c.teardownPodNetwork(deferCtx, sandbox); cleanupErr != nil {
-					log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+				if c.config.PodNetworkConfig.Enabled {
+					if cleanupErr := c.stopPodnetwork(deferCtx, sandbox); cleanupErr != nil {
+						log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+					}
+				} else {
+					if cleanupErr := c.teardownPodNetwork(deferCtx, sandbox); cleanupErr != nil {
+						log.G(ctx).WithError(cleanupErr).Errorf("Failed to destroy network for sandbox %q", id)
+					}
 				}
 
 			}
@@ -352,8 +372,14 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		// In this case however caching the IP will add a subtle performance enhancement by avoiding
 		// calls to network namespace of the pod to query the IP of the veth interface on every
 		// SandboxStatus request.
-		if err := c.setupPodNetwork(ctx, &sandbox); err != nil {
-			return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+		if c.config.PodNetworkConfig.Enabled {
+			if err := c.podNetworkSetup(ctx, &sandbox); err != nil {
+				return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+			}
+		} else {
+			if err := c.setupPodNetwork(ctx, &sandbox); err != nil {
+				return nil, fmt.Errorf("failed to setup network for sandbox %q: %w", id, err)
+			}
 		}
 		sandboxCreateNetworkTimer.UpdateSince(netStart)
 	}
@@ -486,6 +512,22 @@ func (c *criService) setupPodNetwork(ctx context.Context, sandbox *sandboxstore.
 		return nil
 	}
 	return fmt.Errorf("failed to find network info for sandbox %q", id)
+}
+
+func (c *criService) podNetworkSetup(ctx context.Context, sandbox *sandboxstore.Sandbox) error {
+	res, err := c.networkService.Attach(ctx, sandbox)
+
+	if err != nil {
+		return err
+	}
+
+	if configs, ok := res.Ipconfigs[defaultIfName]; ok && len(res.Ipconfigs) > 0 {
+		//sandbox.IP, sandbox.AdditionalIPs = selectPodIPs(ctx, configs.IPConfigs, c.config.IPPreference)
+		sandbox.IP = configs.Ip[0]
+		return nil
+	}
+
+	return fmt.Errorf("attach interface failed")
 }
 
 // cniNamespaceOpts get CNI namespace options from sandbox config.

@@ -43,6 +43,7 @@ import (
 	criconfig "github.com/containerd/containerd/v2/internal/cri/config"
 	"github.com/containerd/containerd/v2/internal/cri/nri"
 	"github.com/containerd/containerd/v2/internal/cri/server/events"
+	"github.com/containerd/containerd/v2/internal/cri/server/podnetwork"
 	containerstore "github.com/containerd/containerd/v2/internal/cri/store/container"
 	imagestore "github.com/containerd/containerd/v2/internal/cri/store/image"
 	"github.com/containerd/containerd/v2/internal/cri/store/label"
@@ -155,6 +156,8 @@ type criService struct {
 	sandboxService sandboxService
 	// runtimeHandlers contains runtime handler info
 	runtimeHandlers []*runtime.RuntimeHandler
+
+	networkService *podnetwork.NetworkService
 }
 
 type CRIServiceOptions struct {
@@ -182,6 +185,8 @@ func NewCRIService(options *CRIServiceOptions) (CRIService, runtime.RuntimeServi
 	labels := label.NewStore()
 	config := options.RuntimeService.Config()
 
+	podns, err := podnetwork.NewNetworkService(config.PodNetworkConfig.SocketPath, time.Second * 30)
+
 	c := &criService{
 		RuntimeService:     options.RuntimeService,
 		ImageService:       options.ImageService,
@@ -195,6 +200,7 @@ func NewCRIService(options *CRIServiceOptions) (CRIService, runtime.RuntimeServi
 		containerNameIndex: registrar.NewRegistrar(),
 		netPlugin:          make(map[string]cni.CNI),
 		sandboxService:     newCriSandboxService(&config, options.SandboxControllers),
+		networkService:     podns,
 	}
 
 	// TODO: Make discard time configurable

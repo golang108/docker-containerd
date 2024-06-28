@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package kni;
+option go_package = "pkg/network";
+
+service NetworkService {
+    rpc AttachInterface(AttachInterfaceRequest) returns (AttachInterfaceResponse) {} //MVP
+    rpc DetachInterface(DetachInterfaceRequest) returns (DetachInterfaceResponse) {} //MVP
+}
+
+message AttachInterfaceRequest {
+    string name = 1;
+    string id = 2;
+    string namespace = 3;
+    map<string,string> labels = 4;
+    map<string,string> annotations = 5;
+    map<string,string> extradata = 6;
+    string netns_path = 7;
+}
+    
+message AttachInterfaceResponse {
+    map<string, IPConfig> ipconfigs = 1;
+    map<string,string> extradata = 2;
+}
+    
+message DetachInterfaceRequest {
+    string name = 1;
+    string id = 2;
+    string namespace = 3;
+    map<string,string> labels = 4;
+    map<string,string> annotations = 5;
+    map<string,string> extradata = 6;
+    string netns_path = 7;
+}
+    
+message DetachInterfaceResponse {
+}
+
+message IPConfig {
+    repeated string ip = 1;
+    string mac = 2;
+    map<string,string> extradata = 3;
+}

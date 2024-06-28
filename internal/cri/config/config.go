@@ -146,6 +146,11 @@ type ContainerdConfig struct {
 	IgnoreRdtNotEnabledErrors bool `toml:"ignore_rdt_not_enabled_errors" json:"ignoreRdtNotEnabledErrors"`
 }
 
+type PodNetworkConfig struct {
+	SocketPath string `toml:"socket_path" json:"socketPath"`
+	Enabled    bool `toml:"enabled" json:"enabled"`
+}
+
 // CniConfig contains toml config related to cni
 type CniConfig struct {
 	// NetworkPluginBinDir is the directory in which the binaries for the plugin is kept.
@@ -331,6 +336,8 @@ type RuntimeConfig struct {
 	ContainerdConfig `toml:"containerd" json:"containerd"`
 	// CniConfig contains config related to cni
 	CniConfig `toml:"cni" json:"cni"`
+	// PodNetworkConfig contains config related to pod network
+	PodNetworkConfig `toml:"pod_network" json:"podNetwork"`
 	// EnableSelinux indicates to enable the selinux support.
 	EnableSelinux bool `toml:"enable_selinux" json:"enableSelinux"`
 	// SelinuxCategoryRange allows the upper bound on the category range to be set.
